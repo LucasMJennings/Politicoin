@@ -7,72 +7,152 @@ contract Politicoin is ERC20Mintable {
   mapping (address => bool) public whitelist;
   address[] public whitelistArray;
 
+  uint private maxBallotId;
+
   struct Ballot {
     string name;
-    uint endTime;
+    bool open;
     uint yesVotes;
     uint noVotes;
   }
 
-  Ballot[] public ballots;
+  mapping (uint => Ballot) public ballots;
+  uint[] private openBallots;
+  mapping (uint => uint) openBallotIdIndex;
+  /* Stores the index at which a given ballotId exists in openBallots array */
 
-  function distribute (address[] addresses, uint[] amounts) public onlyMinter returns (bool[]) {
-    uint arrayLength = addresses.length;
-    for (uint i=0; i<arrayLength; i++) {
-      mint(addresses[i], amounts[i]);
+  mapping (uint => mapping (address => uint[])) private ballotAddressVotes;
+  /* Used to store current votes on a given ballotId for an address.  Index position 0 is yesVotes and position 1 is no votes.  Only one of these can be a non-zero value */
+
+  function distribute (address[] _addresses, uint[] _amounts) public onlyMinter returns (bool[]) {
+    for (uint i = 0; i < _addresses.length; i++) {
+      mint(_addresses[i], _amounts[i]);
     }
   }
 
-  function whitelistAddress (address whiteListAddy) public onlyMinter {
-    whitelist[whiteListAddy] = true;
-    whitelistArray.push(whiteListAddy);
+  function whitelistAddress (address _whiteListAddy) public onlyMinter returns (bool) {
+    whitelist[_whiteListAddy] = true;
+    whitelistArray.push(_whiteListAddy);
+    return true;
   }
 
-  function whiteListAddresses (address[] whiteListAddys) public onlyMinter {
-    uint arrayLength = whiteListAddys.length;
-    for (uint i=0; i<arrayLength; i++) {
-      whitelistAddress(whiteListAddys[i]);
+  function whiteListAddresses (address[] _whiteListAddys) public onlyMinter returns (bool[]) {
+    for (uint i = 0; i < _whiteListAddys.length; i++) {
+      whitelistAddress(_whiteListAddys[i]);
     }
   }
 
-  modifier whitelistedAddy(address checkAddress) {
-    require(whitelist[checkAddress] == true);
+  modifier whitelistedAddy(address _checkAddress) {
+    require(whitelist[_checkAddress] == true);
     _;
   }
 
-  function isWhiteListed(address checkAddress) public view returns (bool) {
-    bool isAddyWhiteListed = whitelist[checkAddress];
-    return isAddyWhiteListed;
+  function isWhiteListed(address _checkAddress) public view returns (bool) {
+    return whitelist[_checkAddress];
   }
 
-  function createBallot (string ballotName) public onlyMinter returns (uint ballotId)  {
-    Ballot memory newBallot = Ballot(ballotName, now + 1 days, 0, 0);
-    ballots.push(newBallot);
-    return ballots.length-1;
+  function createBallot (string _ballotName) public onlyMinter returns (uint ballotId)  {
+    maxBallotId++;
+    ballots[maxBallotId] = Ballot(_ballotName, false, 0, 0);
+    return maxBallotId;
   }
 
-  modifier ballotOpen (uint ballotId) {
-    require(ballots[ballotId].endTime >= now);
+  function isBallotOpen (uint _ballotId) public view validBallot(_ballotId) returns (bool) {
+    return ballots[_ballotId].open;
+  }
+
+  modifier ballotOpen (uint _ballotId) {
+    require(isBallotOpen(_ballotId));
     _;
   }
 
-  function showBallot(uint ballotId) public view returns (string ballotName, uint ballotEndTime, uint ballotYesVotes, uint ballotNoVotes) {
-    return (ballots[ballotId].name, ballots[ballotId].endTime, ballots[ballotId].yesVotes, ballots[ballotId].noVotes);
+  function showBallot (uint _ballotId) public view returns (string _ballotName, uint _ballotEndTime, uint _ballotYesVotes, uint _ballotNoVotes) {
+    return (ballots[_ballotId].name, ballots[_ballotId].endTime, ballots[_ballotId].yesVotes, ballots[_ballotId].noVotes);
   }
 
-  function getHighestBallotId() public view returns (uint) {
-    return ballots.length-1;
+  function isValidBallot (uint _ballotId) public view returns (bool) {
+    return _ballotId != 0 && _ballotId <= maxBallotId;
   }
 
-  function castVote (uint ballotId, bool YesVote) public whitelistedAddy(msg.sender) addressUnlocked(msg.sender) ballotOpen(ballotId) {
-    lockTokens();
-    uint votes = _balances[msg.sender];
-    if (YesVote == true) {
-      ballots[ballotId].yesVotes += votes;
+  modifier validBallot (uint _ballotId) {
+    require(isValidBallot(_ballotId));
+    _;
+  }
+
+  function openBallot (uint _ballotId) public onlyMinter returns (bool) {
+    require(isBallotOpen(_ballotId) == false);
+    ballots[ballotId].open = true;
+    openBallots.push(_ballotId);
+    openBallotIdIndex[_ballotId] = openBallots.length - 1;
+  }
+
+  function closeBallot (uint _ballotId) public onlyMinter ballotOpen returns (bool) {
+    ballots[ballotId].open = false;
+    if (openBallotIdIndex[_ballotId] != openBallots.length - 1) {
+      openBallots[openBallotIdIndex[_ballotId]] = openBallots[openBallots.length-1];
+    }
+    openBallots.length--;
+  }
+
+  function castVote (uint _ballotId, bool _yesVote) public whitelistedAddy(msg.sender) ballotOpen(_ballotId) {
+    require(_balances[msg.sender] > 0);
+    if (ballotAddressVotes[_ballotId][msg.sender][0] > 0) {
+      if (_yesVote) {
+        if (ballotAddressVotes[_ballotId][msg.sender][0] < _balances[msg.sender]) {
+          ballots[_ballotId].yesVote += _balances[msg.sender] - ballotAddressVotes[_ballotId][msg.sender][0];
+          ballotAddressVotes[_ballotId][msg.sender][0] = _balances[msg.sender];
+        }
+      }
+      else {
+        ballots[_ballotId].yesVotes -= ballotAddressVotes[_ballotId][msg.sender][0];
+        delete ballotAddressVotes[_ballotId][msg.sender][0];
+        ballots[_ballotId].noVotes += _balances[msg.sender];
+        ballotAddressVotes[_ballotId][msg.sender][1] = _balances[msg.sender];
+      }
+    }
+    else if (ballotAddressVotes[_ballotId][msg.sender][1] > 0) {
+      if (_yesVote) {
+        ballots[_ballotId].noVotes -= ballotAddressVotes[_ballotId][msg.sender][1];
+        delete ballotAddressVotes[_ballotId][msg.sender][1];
+        ballots[_ballotId].yesVotes += _balances[msg.sender];
+        ballotAddressVotes[_ballotId][msg.sender][0] = _balances[msg.sender];
+      }
+      else {
+        if (ballotAddressVotes[_ballotId][msg.sender][1] < _balances[msg.sender]) {
+          ballots[_ballotId].noVote += _balances[msg.sender] - ballotAddressVotes[_ballotId][msg.sender][1];
+          ballotAddressVotes[_ballotId][msg.sender][1] = _balances[msg.sender];
+        }
+      }
     }
     else {
-      ballots[ballotId].noVotes += votes;
+      if (_yesVote) {
+        ballots[_ballotId].yesVotes += _balances[msg.sender];
+        ballotAddressVotes[_ballotId][msg.sender][0] = _balances[msg.sender];
+      }
+      else {
+        ballots[_ballotId].noVotes += _balances[msg.sender];
+        ballotAddressVotes[_ballotId][msg.sender][1] = _balances[msg.sender];
+      }
     }
+  }
+
+  /* Transfer function moved here in order to remove cast votes when transferring tokens */
+  function transfer(address _to, uint256 _value) public addressUnlocked(msg.sender) returns (bool) {
+    require(_value <= _balances[msg.sender]);
+    require(_to != address(0));
+    _balances[msg.sender] = _balances[msg.sender].sub(_value);
+    _balances[to] = _balances[_to].add(_value);
+    for (uint i = 0; i < openBallots.length; i++) {
+      if (ballotAddressVotes[openBallots[i]][msg.sender][0] > _balances[msg.sender]) {
+        ballots[openBallots[i]].yesVotes.sub(ballotAddressVotes[openBallots[i]][msg.sender][0] - _balances[msg.sender]);
+        ballotAddressVotes[openBallots[i]][msg.sender][0] = _balances[msg.sender];
+      }
+      else if (ballotAddressVotes[openBallots[i]][msg.sender][1] > _balances[msg.sender]) {
+        ballots[openBallots[i]].noVotes.sub(ballotAddressVotes[openBallots[i]][msg.sender][1] - _balances[msg.sender]);
+        ballotAddressVotes[openBallots[i]][msg.sender][1] = _balances[msg.sender];
+      }
+    }
+    return true;
   }
 
 }
