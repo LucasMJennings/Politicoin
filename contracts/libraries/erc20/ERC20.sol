@@ -1,7 +1,6 @@
 pragma solidity ^0.4.24;
 
 import "../math/SafeMath.sol";
-import "../../LockedToken.sol";
 
 /**
  * @title Standard ERC20 token
@@ -10,12 +9,12 @@ import "../../LockedToken.sol";
  * https://github.com/ethereum/EIPs/blob/master/EIPS/eip-20.md
  * Originally based on code by FirstBlood: https://github.com/Firstbloodio/token/blob/master/smart_contract/FirstBloodToken.sol
  */
-contract ERC20 is LockedToken {
+contract ERC20 {
   using SafeMath for uint256;
 
   mapping (address => uint256) public _balances;
 
-  mapping (address => mapping (address => uint256)) private _allowed;
+  mapping (address => mapping (address => uint256)) internal _allowed;
 
   uint256 private _totalSupply;
 
@@ -89,7 +88,8 @@ contract ERC20 is LockedToken {
    * @param to address The address which you want to transfer to
    * @param value uint256 the amount of tokens to be transferred
    */
-  function transferFrom(
+   /* transferFrom function moved into main Politicoin contract */
+  /* function transferFrom(
     address from,
     address to,
     uint256 value
@@ -106,7 +106,7 @@ contract ERC20 is LockedToken {
     _balances[to] = _balances[to].add(value);
     _allowed[from][msg.sender] = _allowed[from][msg.sender].sub(value);
     return true;
-  }
+  } */
 
   /**
    * @dev Increase the amount of tokens that an owner allowed to a spender.
