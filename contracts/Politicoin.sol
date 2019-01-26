@@ -114,6 +114,11 @@ contract Politicoin is ERC20Mintable {
     return true;
   }
 
+  function getVotesByBallotByAddress (uint _ballotId, address _address) public view validBallot(_ballotId) returns (uint _yesVotes, uint _noVotes) {
+    _yesVotes = ballotAddressVotes[_ballotId][_address].yesVotes;
+    _noVotes = ballotAddressVotes[_ballotId][_address].noVotes;
+  }
+
   function castVote (uint _ballotId, bool _yesVote) public whitelistedAddy(msg.sender) ballotOpen(_ballotId) returns (bool) {
     require(_balances[msg.sender] > 0);
     if (ballotAddressVotes[_ballotId][msg.sender].yesVotes > 0) {
