@@ -81,7 +81,7 @@ contract('AdCoin', async (accounts) => {
     const ballot2 = await politicoin.showBallot.call(2);
     assert.equal(ballot2[0], "Thomas Jefferson");
     const ballotId = await politicoin.getHighestBallotId.call();
-    assert.equal(ballotId, 2)
+    assert.equal(ballotId, 2);
   });
   it("only a manager can create a ballot", async () => {
     const politicoin = await AdCoin.new();

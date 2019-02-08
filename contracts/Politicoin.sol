@@ -60,8 +60,14 @@ contract Politicoin is ERC20Mintable {
     maxBallotId++;
     ballots[maxBallotId] = Ballot(_ballotName, false, 0, 0);
     ballotIds.push(maxBallotId);
+    emit BallotCreated(_ballotName, maxBallotId);
     return maxBallotId;
   }
+
+  event BallotCreated(
+    string ballotName,
+    uint indexed ballotId
+  );
 
   function isBallotOpen (uint _ballotId) public view validBallot(_ballotId) returns (bool) {
     return ballots[_ballotId].open;
@@ -102,8 +108,13 @@ contract Politicoin is ERC20Mintable {
     ballots[_ballotId].open = true;
     openBallots.push(_ballotId);
     openBallotIdIndex[_ballotId] = openBallots.length - 1;
+    emit BallotOpened(_ballotId);
     return true;
   }
+
+  event BallotOpened(
+    uint indexed ballotId
+  );
 
   function closeBallot (uint _ballotId) public onlyMinter ballotOpen(_ballotId) returns (bool) {
     ballots[_ballotId].open = false;
@@ -111,8 +122,13 @@ contract Politicoin is ERC20Mintable {
       openBallots[openBallotIdIndex[_ballotId]] = openBallots[openBallots.length-1];
     }
     openBallots.length--;
+    emit BallotClosed(_ballotId);
     return true;
   }
+
+  event BallotClosed(
+    uint indexed ballotId
+  );
 
   function getVotesByBallotByAddress (uint _ballotId, address _address) public view validBallot(_ballotId) returns (uint _yesVotes, uint _noVotes) {
     _yesVotes = ballotAddressVotes[_ballotId][_address].yesVotes;
@@ -159,8 +175,16 @@ contract Politicoin is ERC20Mintable {
         ballotAddressVotes[_ballotId][msg.sender].noVotes = _balances[msg.sender];
       }
     }
+    emit VoteCast(msg.sender, _ballotId, _yesVote, _balances[msg.sender]);
     return true;
   }
+
+  event VoteCast(
+    address indexed voter,
+    uint indexed ballotId,
+    bool yesVote,
+    uint amount
+  );
 
   /* Transfer function moved here in order to remove cast votes when transferring tokens */
   function transfer(address _to, uint256 _value) public returns (bool) {
@@ -178,6 +202,7 @@ contract Politicoin is ERC20Mintable {
         ballotAddressVotes[openBallots[i]][msg.sender].noVotes = _balances[msg.sender];
       }
     }
+    emit Transfer(msg.sender, _to, _value);
     return true;
   }
 
@@ -200,6 +225,14 @@ contract Politicoin is ERC20Mintable {
         ballotAddressVotes[openBallots[i]][_from].noVotes = _balances[_from];
       }
     }
+    emit Transfer(_from, _to, _value);
     return true;
   }
+
+  event Transfer(
+    address indexed from,
+    address indexed to,
+    uint256 value
+  );
+
 }
