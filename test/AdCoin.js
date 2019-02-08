@@ -75,13 +75,13 @@ contract('AdCoin', async (accounts) => {
   it("creates a ballot", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
-    const ballot = await politicoin.showBallot.call(0);
+    const ballot = await politicoin.showBallot.call(1);
     assert.equal(ballot[0], "George Washington");
     await politicoin.createBallot("Thomas Jefferson", { from: manager, gas: "100000000"});
-    const ballot2 = await politicoin.showBallot.call(1);
+    const ballot2 = await politicoin.showBallot.call(2);
     assert.equal(ballot2[0], "Thomas Jefferson");
     const ballotId = await politicoin.getHighestBallotId.call();
-    assert.equal(ballotId, 1)
+    assert.equal(ballotId, 2)
   });
   it("only a manager can create a ballot", async () => {
     const politicoin = await AdCoin.new();
@@ -97,9 +97,10 @@ contract('AdCoin', async (accounts) => {
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
     await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
-    await politicoin.castVote(0, true, { from: user1, gas: "100000000"});
-    await politicoin.castVote(0, false, { from: user2, gas: "100000000"});
-    const results = await politicoin.showBallot.call(0);
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
+    await politicoin.castVote(1, false, { from: user2, gas: "100000000"});
+    const results = await politicoin.showBallot.call(1);
     const yesVotes = results[2].toNumber();
     const noVotes = results[3].toNumber();
     assert.equal(yesVotes, 500);
@@ -110,9 +111,10 @@ contract('AdCoin', async (accounts) => {
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
     await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
-    await politicoin.castVote(0, true, { from: user1, gas: "100000000"});
-    await politicoin.castVote(0, true, { from: user2, gas: "100000000"});
-    const results = await politicoin.showBallot.call(0);
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user2, gas: "100000000"});
+    const results = await politicoin.showBallot.call(1);
     const yesVotes = results[2].toNumber();
     assert.equal(yesVotes, 1500);
   });
@@ -120,36 +122,9 @@ contract('AdCoin', async (accounts) => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
       try {
-        await politicoin.castVote(0, true, { from: user1, gas: "100000000"});
-        assert(false);
-      } catch (err) {
-        assert(err);
-      }
-  });
-  it("locked address cannot vote", async () => {
-    const politicoin = await AdCoin.new();
-    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000"});
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
-    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
-    await politicoin.castVote(0, true, { from: user1, gas: "100000000"});
-      try {
-        await politicoin.castVote(0, false, { from: user1, gas: "100000000"});
-        assert(false);
-      } catch (err) {
-        assert(err);
-      }
-  });
-  it("manager can lock tokens", async () => {
-    const politicoin = await AdCoin.new();
-    await politicoin.lockTokensMaster(user1, { from: manager, gas: "100000000"});
-    const lockedTokens = await politicoin.showLockedTokens.call();
-    assert.equal(lockedTokens[0], user1);
-  });
-  it("only a manager can lock tokens", async () => {
-    const politicoin = await AdCoin.new();
-      try {
-        await politicoin.lockTokensMaster(user2, { from: user1, gas: "100000000"});
+        await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
         assert(false);
       } catch (err) {
         assert(err);
@@ -164,38 +139,88 @@ contract('AdCoin', async (accounts) => {
     assert.equal(user2balance, 1250);
     assert.equal(user1balance, 250);
   });
-  it("locked tokens can't transfer", async () => {
+  it("only a manager can open a ballot", async () => {
     const politicoin = await AdCoin.new();
-    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000"});
+    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    try {
+      await politicoin.openBallot(1, { from: user1, gas: "100000000"});
+      assert(false);
+    } catch (err) {
+      assert(err);
+    }
+  });
+  it("only a manager can close a ballot", async () => {
+    const politicoin = await AdCoin.new();
+    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    try {
+      await politicoin.closeBallot(1, { from: user1, gas: "100000000"});
+      assert(false);
+    } catch (err) {
+      assert(err);
+    }
+  });
+  it("doesn't allow voting on a closed ballot", async () => {
+    const politicoin = await AdCoin.new();
+    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
     await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
-    await politicoin.castVote(0, true, { from: user1, gas: "100000000"});
-      try {
-        await politicoin.transfer(user2, 250, {from: user1});
-        assert(false);
-      } catch (err) {
-        assert(err);
-      }
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
+    await politicoin.closeBallot(1, {from: manager, gas: "100000000"});
+    try {
+      await politicoin.castVote(1, true, { from: user2, gas: "100000000"});
+      assert(false);
+    } catch (err) {
+      assert(err);
+    }
   });
-  it("manager can unlock tokens", async () => {
+  it("wipes out votes when tokens are transferred", async () => {
     const politicoin = await AdCoin.new();
-    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000"});
-    await politicoin.lockTokensMaster(user1, { from: manager, gas: "100000000"});
-    await politicoin.lockTokensMaster(user2, { from: manager, gas: "100000000"});
-    await politicoin.unlockAllTokens( { from: manager, gas: "100000000"});
+    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
+    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
+    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
     await politicoin.transfer(user2, 250, {from: user1});
-    const user2balance = await politicoin.balanceOf.call(user2);
-    const user1balance = await politicoin.balanceOf.call(user1);
-    assert.equal(user2balance, 1250);
-    assert.equal(user1balance, 250);
+    const results = await politicoin.showBallot.call(1);
+    const yesVotes = results[2].toNumber();
+    assert.equal(yesVotes, 250);
   });
-  it("only a manager can unlock tokens", async () => {
+  it("adds additional votes when voting again with new tokens", async () => {
     const politicoin = await AdCoin.new();
-      try {
-        await politicoin.unlockAllTokens({ from: user1, gas: "100000000"});
-        assert(false);
-      } catch (err) {
-        assert(err);
-      }
+    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
+    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
+    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
+    await politicoin.castVote(1, false, { from: user2, gas: "100000000"});
+    const results = await politicoin.showBallot.call(1);
+    const noVotes = results[3].toNumber();
+    assert.equal(noVotes, 1000);
+    await politicoin.transfer(user2, 250, {from: user1});
+    await politicoin.castVote(1, false, { from: user2, gas: "100000000"});
+    const results2 = await politicoin.showBallot.call(1);
+     const noVotes2 = results2[3].toNumber();
+    assert.equal(noVotes2, 1250);
+  });
+  it("allows users to change votes", async () => {
+    const politicoin = await AdCoin.new();
+    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
+    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
+    await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
+    await politicoin.openBallot(1, { from: manager, gas: "100000000"});
+    await politicoin.castVote(1, false, { from: user2, gas: "100000000"});
+    const results = await politicoin.showBallot.call(1);
+    const noVotes = results[3].toNumber();
+    const yesVotes = results[2].toNumber();
+    assert.equal(noVotes, 1000);
+    assert.equal(yesVotes, 0);
+    await politicoin.castVote(1, true, { from: user2, gas: "100000000"});
+    const results2 = await politicoin.showBallot.call(1);
+    const noVotes2 = results2[3].toNumber();
+    const yesVotes2 = results2[2].toNumber();
+    assert.equal(noVotes2, 0);
+    assert.equal(yesVotes2, 1000);
   });
 });
