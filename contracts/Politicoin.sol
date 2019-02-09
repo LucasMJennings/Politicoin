@@ -42,19 +42,26 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     ] = true;
   }
 
-  function distribute (address[] _addresses, uint[] _amounts) public onlyMinter returns (bool[]) {
+  function distribute (address[] _addresses, uint[] _amounts) external onlyMinter returns (bool[]) {
     for (uint i = 0; i < _addresses.length; i++) {
+      require(_addresses[i] != address(0));
+      require(_amounts[i] > 0);
       mint(_addresses[i], _amounts[i]);
       _totalSupply.add(_amounts[i]);
     }
   }
 
-  function whitelistAddress (address _whiteListAddy) public onlyMinter returns (bool) {
+  modifier validAddress(address _address) {
+    require(_address != address(0));
+    _;
+  }
+
+  function whitelistAddress (address _whiteListAddy) public onlyMinter validAddress(_whiteListAddy) returns (bool) {
     whitelist[_whiteListAddy] = true;
     return true;
   }
 
-  function whiteListAddresses (address[] _whiteListAddys) public onlyMinter returns (bool[]) {
+  function whiteListAddresses (address[] _whiteListAddys) external onlyMinter returns (bool[]) {
     for (uint i = 0; i < _whiteListAddys.length; i++) {
       whitelistAddress(_whiteListAddys[i]);
     }
@@ -65,11 +72,11 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     _;
   }
 
-  function isWhiteListed(address _checkAddress) public view returns (bool) {
+  function isWhiteListed(address _checkAddress) external view validAddress(_checkAddress) returns (bool) {
     return whitelist[_checkAddress];
   }
 
-  function createBallot (bytes32 _ballotName) public onlyMinter returns (uint ballotId)  {
+  function createBallot (bytes32 _ballotName) external onlyMinter returns (uint ballotId)  {
     maxBallotId++;
     ballots[maxBallotId] = Ballot(false, 0, 0, bytes23(_ballotName));
     ballotIds.push(maxBallotId);
@@ -82,12 +89,12 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     uint indexed ballotId
   );
 
-  function isBallotOpen (uint _ballotId) public view validBallot(_ballotId) returns (bool) {
+  function isBallotOpen (uint _ballotId) external view validBallot(_ballotId) returns (bool) {
     return ballots[_ballotId].open;
   }
 
   modifier ballotOpen (uint _ballotId) {
-    require(isBallotOpen(_ballotId));
+    require(ballots[_ballotId].open == true);
     _;
   }
 
@@ -103,21 +110,21 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     return ballotIds;
   }
 
-  function showBallot (uint _ballotId) public view returns (bytes32 _ballotName, bool _ballotOpen, uint _ballotYesVotes, uint _ballotNoVotes) {
+  function showBallot (uint _ballotId) external view validBallot(_ballotId) returns (bytes32 _ballotName, bool _ballotOpen, uint _ballotYesVotes, uint _ballotNoVotes) {
     return (bytes32(ballots[_ballotId].name), ballots[_ballotId].open, ballots[_ballotId].yesVotes, ballots[_ballotId].noVotes);
   }
 
-  function isValidBallot (uint _ballotId) public view returns (bool) {
+  function isValidBallot (uint _ballotId) external view returns (bool) {
     return _ballotId != 0 && _ballotId <= maxBallotId;
   }
 
   modifier validBallot (uint _ballotId) {
-    require(isValidBallot(_ballotId));
+    require(_ballotId != 0 && _ballotId <= maxBallotId);
     _;
   }
 
-  function openBallot (uint _ballotId) public onlyMinter returns (bool) {
-    require(isBallotOpen(_ballotId) == false);
+  function openBallot (uint _ballotId) external onlyMinter validBallot(_ballotId) returns (bool) {
+    require(ballots[_ballotId].open == false);
     ballots[_ballotId].open = true;
     openBallots.push(_ballotId);
     openBallotIdIndex[_ballotId] = openBallots.length - 1;
@@ -129,7 +136,7 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     uint indexed ballotId
   );
 
-  function closeBallot (uint _ballotId) public onlyMinter ballotOpen(_ballotId) returns (bool) {
+  function closeBallot (uint _ballotId) external onlyMinter validBallot(_ballotId) ballotOpen(_ballotId) returns (bool) {
     ballots[_ballotId].open = false;
     if (openBallotIdIndex[_ballotId] != openBallots.length - 1) {
       openBallots[openBallotIdIndex[_ballotId]] = openBallots[openBallots.length-1];
@@ -143,12 +150,12 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     uint indexed ballotId
   );
 
-  function getVotesByBallotByAddress (uint _ballotId, address _address) public view validBallot(_ballotId) returns (uint _yesVotes, uint _noVotes) {
+  function getVotesByBallotByAddress (uint _ballotId, address _address) external view validBallot(_ballotId) validAddress(_address) returns (uint _yesVotes, uint _noVotes) {
     _yesVotes = ballotAddressVotes[_ballotId][_address].yesVotes;
     _noVotes = ballotAddressVotes[_ballotId][_address].noVotes;
   }
 
-  function castVote (uint _ballotId, bool _yesVote) public whitelistedAddy(msg.sender) ballotOpen(_ballotId) returns (bool) {
+  function castVote (uint _ballotId, bool _yesVote) external validBallot(_ballotId) whitelistedAddy(msg.sender) ballotOpen(_ballotId) returns (bool) {
     require(_balances[msg.sender] > 0);
     if (ballotAddressVotes[_ballotId][msg.sender].yesVotes > 0) {
       if (_yesVote) {
@@ -224,6 +231,7 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     require(_value <= _balances[_from]);
     require(_value <= _allowed[_from][msg.sender]);
     require(_to != address(0));
+    require(_from != address(0));
 
     _balances[_from] = _balances[_from].sub(_value);
     _balances[_to] = _balances[_to].add(_value);
