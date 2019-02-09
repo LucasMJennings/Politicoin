@@ -11,10 +11,10 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
   uint private maxBallotId;
 
   struct Ballot {
-    string name;
     bool open;
-    uint yesVotes;
-    uint noVotes;
+    uint32 yesVotes;
+    uint32 noVotes;
+    bytes23 name;
   }
 
   mapping (uint => Ballot) public ballots;
@@ -24,8 +24,8 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
   /* Stores the index at which a given ballotId exists in openBallots array */
 
   struct CastVote {
-    uint yesVotes;
-    uint noVotes;
+    uint128 yesVotes;
+    uint128 noVotes;
   }
 
   mapping (uint => mapping (address => CastVote)) private ballotAddressVotes;
@@ -69,16 +69,16 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     return whitelist[_checkAddress];
   }
 
-  function createBallot (string _ballotName) public onlyMinter returns (uint ballotId)  {
+  function createBallot (bytes32 _ballotName) public onlyMinter returns (uint ballotId)  {
     maxBallotId++;
-    ballots[maxBallotId] = Ballot(_ballotName, false, 0, 0);
+    ballots[maxBallotId] = Ballot(false, 0, 0, bytes23(_ballotName));
     ballotIds.push(maxBallotId);
     emit BallotCreated(_ballotName, maxBallotId);
     return maxBallotId;
   }
 
   event BallotCreated(
-    string ballotName,
+    bytes32 ballotName,
     uint indexed ballotId
   );
 
@@ -103,8 +103,8 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     return ballotIds;
   }
 
-  function showBallot (uint _ballotId) public view returns (string _ballotName, bool _ballotOpen, uint _ballotYesVotes, uint _ballotNoVotes) {
-    return (ballots[_ballotId].name, ballots[_ballotId].open, ballots[_ballotId].yesVotes, ballots[_ballotId].noVotes);
+  function showBallot (uint _ballotId) public view returns (bytes32 _ballotName, bool _ballotOpen, uint _ballotYesVotes, uint _ballotNoVotes) {
+    return (bytes32(ballots[_ballotId].name), ballots[_ballotId].open, ballots[_ballotId].yesVotes, ballots[_ballotId].noVotes);
   }
 
   function isValidBallot (uint _ballotId) public view returns (bool) {
@@ -153,39 +153,39 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     if (ballotAddressVotes[_ballotId][msg.sender].yesVotes > 0) {
       if (_yesVote) {
         if (ballotAddressVotes[_ballotId][msg.sender].yesVotes < _balances[msg.sender]) {
-          ballots[_ballotId].yesVotes += _balances[msg.sender] - ballotAddressVotes[_ballotId][msg.sender].yesVotes;
-          ballotAddressVotes[_ballotId][msg.sender].yesVotes = _balances[msg.sender];
+          ballots[_ballotId].yesVotes += uint32(_balances[msg.sender]) - uint32(ballotAddressVotes[_ballotId][msg.sender].yesVotes);
+          ballotAddressVotes[_ballotId][msg.sender].yesVotes = uint128(_balances[msg.sender]);
         }
       }
       else {
-        ballots[_ballotId].yesVotes -= ballotAddressVotes[_ballotId][msg.sender].yesVotes;
+        ballots[_ballotId].yesVotes -= uint32(ballotAddressVotes[_ballotId][msg.sender].yesVotes);
         delete ballotAddressVotes[_ballotId][msg.sender].yesVotes;
-        ballots[_ballotId].noVotes += _balances[msg.sender];
-        ballotAddressVotes[_ballotId][msg.sender].noVotes = _balances[msg.sender];
+        ballots[_ballotId].noVotes += uint32(_balances[msg.sender]);
+        ballotAddressVotes[_ballotId][msg.sender].noVotes = uint128(_balances[msg.sender]);
       }
     }
     else if (ballotAddressVotes[_ballotId][msg.sender].noVotes > 0) {
       if (_yesVote) {
-        ballots[_ballotId].noVotes -= ballotAddressVotes[_ballotId][msg.sender].noVotes;
+        ballots[_ballotId].noVotes -= uint32(ballotAddressVotes[_ballotId][msg.sender].noVotes);
         delete ballotAddressVotes[_ballotId][msg.sender].noVotes;
-        ballots[_ballotId].yesVotes += _balances[msg.sender];
-        ballotAddressVotes[_ballotId][msg.sender].yesVotes = _balances[msg.sender];
+        ballots[_ballotId].yesVotes += uint32(_balances[msg.sender]);
+        ballotAddressVotes[_ballotId][msg.sender].yesVotes = uint128(_balances[msg.sender]);
       }
       else {
         if (ballotAddressVotes[_ballotId][msg.sender].noVotes < _balances[msg.sender]) {
-          ballots[_ballotId].noVotes += _balances[msg.sender] - ballotAddressVotes[_ballotId][msg.sender].noVotes;
-          ballotAddressVotes[_ballotId][msg.sender].noVotes = _balances[msg.sender];
+          ballots[_ballotId].noVotes += uint32(_balances[msg.sender]) - uint32(ballotAddressVotes[_ballotId][msg.sender].noVotes);
+          ballotAddressVotes[_ballotId][msg.sender].noVotes = uint128(_balances[msg.sender]);
         }
       }
     }
     else {
       if (_yesVote) {
-        ballots[_ballotId].yesVotes += _balances[msg.sender];
-        ballotAddressVotes[_ballotId][msg.sender].yesVotes = _balances[msg.sender];
+        ballots[_ballotId].yesVotes += uint32(_balances[msg.sender]);
+        ballotAddressVotes[_ballotId][msg.sender].yesVotes = uint128(_balances[msg.sender]);
       }
       else {
-        ballots[_ballotId].noVotes += _balances[msg.sender];
-        ballotAddressVotes[_ballotId][msg.sender].noVotes = _balances[msg.sender];
+        ballots[_ballotId].noVotes += uint32(_balances[msg.sender]);
+        ballotAddressVotes[_ballotId][msg.sender].noVotes = uint128(_balances[msg.sender]);
       }
     }
     emit VoteCast(msg.sender, _ballotId, _yesVote, _balances[msg.sender]);
@@ -207,12 +207,12 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     _balances[_to] = _balances[_to].add(_value);
     for (uint i = 0; i < openBallots.length; i++) {
       if (ballotAddressVotes[openBallots[i]][msg.sender].yesVotes > _balances[msg.sender]) {
-        ballots[openBallots[i]].yesVotes -= (ballotAddressVotes[openBallots[i]][msg.sender].yesVotes - _balances[msg.sender]);
-        ballotAddressVotes[openBallots[i]][msg.sender].yesVotes = _balances[msg.sender];
+        ballots[openBallots[i]].yesVotes -= (uint32(ballotAddressVotes[openBallots[i]][msg.sender].yesVotes) - uint32(_balances[msg.sender]));
+        ballotAddressVotes[openBallots[i]][msg.sender].yesVotes = uint128(_balances[msg.sender]);
       }
       else if (ballotAddressVotes[openBallots[i]][msg.sender].noVotes > _balances[msg.sender]) {
-        ballots[openBallots[i]].noVotes -= (ballotAddressVotes[openBallots[i]][msg.sender].noVotes - _balances[msg.sender]);
-        ballotAddressVotes[openBallots[i]][msg.sender].noVotes = _balances[msg.sender];
+        ballots[openBallots[i]].noVotes -= (uint32(ballotAddressVotes[openBallots[i]][msg.sender].noVotes) - uint32(_balances[msg.sender]));
+        ballotAddressVotes[openBallots[i]][msg.sender].noVotes = uint128(_balances[msg.sender]);
       }
     }
     emit Transfer(msg.sender, _to, _value);
@@ -230,12 +230,12 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
     _allowed[_from][msg.sender] = _allowed[_from][msg.sender].sub(_value);
     for (uint i = 0; i < openBallots.length; i++) {
       if (ballotAddressVotes[openBallots[i]][_from].yesVotes > _balances[_from]) {
-        ballots[openBallots[i]].yesVotes -= (ballotAddressVotes[openBallots[i]][_from].yesVotes - _balances[_from]);
-        ballotAddressVotes[openBallots[i]][_from].yesVotes = _balances[_from];
+        ballots[openBallots[i]].yesVotes -= (uint32(ballotAddressVotes[openBallots[i]][_from].yesVotes) - uint32(_balances[_from]));
+        ballotAddressVotes[openBallots[i]][_from].yesVotes = uint128(_balances[_from]);
       }
       else if (ballotAddressVotes[openBallots[i]][_from].noVotes > _balances[_from]) {
-        ballots[openBallots[i]].noVotes -= (ballotAddressVotes[openBallots[i]][_from].noVotes - _balances[_from]);
-        ballotAddressVotes[openBallots[i]][_from].noVotes = _balances[_from];
+        ballots[openBallots[i]].noVotes -= (uint32(ballotAddressVotes[openBallots[i]][_from].noVotes) - uint32(_balances[_from]));
+        ballotAddressVotes[openBallots[i]][_from].noVotes = uint128(_balances[_from]);
       }
     }
     emit Transfer(_from, _to, _value);
