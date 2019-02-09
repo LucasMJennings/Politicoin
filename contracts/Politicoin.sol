@@ -1,8 +1,9 @@
 pragma solidity ^0.4.24;
 
 import "./libraries/erc20/ERC20Mintable.sol";
+import "./libraries/erc165/CheckERC165.sol";
 
-contract Politicoin is ERC20Mintable {
+contract Politicoin is ERC20Mintable, CheckERC165 {
   using SafeMath for uint256;
 
   mapping (address => bool) private whitelist;
@@ -30,9 +31,21 @@ contract Politicoin is ERC20Mintable {
   mapping (uint => mapping (address => CastVote)) private ballotAddressVotes;
   /* Used to store current votes on a given ballotId for an address.  Index position 0 is yesVotes and position 1 is no votes.  Only one of these can be a non-zero value */
 
+  constructor() public CheckERC165() {
+    supportedInterfaces[
+        this.totalSupply.selector ^
+        this.balanceOf.selector ^
+        this.allowance.selector ^
+        this.approve.selector ^
+        bytes4(keccak256("transfer(address,uint256"))^
+        this.transferFrom.selector
+    ] = true;
+  }
+
   function distribute (address[] _addresses, uint[] _amounts) public onlyMinter returns (bool[]) {
     for (uint i = 0; i < _addresses.length; i++) {
       mint(_addresses[i], _amounts[i]);
+      _totalSupply.add(_amounts[i]);
     }
   }
 
