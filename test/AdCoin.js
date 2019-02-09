@@ -95,7 +95,6 @@ contract('AdCoin', async (accounts) => {
   it("allows users to vote yes and no", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
@@ -109,7 +108,6 @@ contract('AdCoin', async (accounts) => {
   it("tallies multiple yes votes", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
@@ -120,11 +118,12 @@ contract('AdCoin', async (accounts) => {
   });
   it("only a whitelisted address can vote", async () => {
     const politicoin = await AdCoin.new();
-    await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
+    await politicoin.distribute([user1], [500], { from: manager, gas: "100000000" });
+    await politicoin.transfer(user2, 250, {from: user1, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
       try {
-        await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
+        await politicoin.castVote(1, true, { from: user2, gas: "100000000"});
         assert(false);
       } catch (err) {
         assert(err);
@@ -163,7 +162,6 @@ contract('AdCoin', async (accounts) => {
   it("doesn't allow voting on a closed ballot", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
@@ -178,7 +176,6 @@ contract('AdCoin', async (accounts) => {
   it("wipes out votes when tokens are transferred", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
@@ -190,7 +187,6 @@ contract('AdCoin', async (accounts) => {
   it("adds additional votes when voting again with new tokens", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, true, { from: user1, gas: "100000000"});
@@ -207,7 +203,6 @@ contract('AdCoin', async (accounts) => {
   it("allows users to change votes", async () => {
     const politicoin = await AdCoin.new();
     await politicoin.distribute([user1, user2], [500, 1000], { from: manager, gas: "100000000" });
-    await politicoin.whiteListAddresses([user1, user2], { from: manager, gas: "100000000"});
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     await politicoin.openBallot(1, { from: manager, gas: "100000000"});
     await politicoin.castVote(1, false, { from: user2, gas: "100000000"});

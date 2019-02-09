@@ -48,6 +48,7 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
       require(_amounts[i] > 0);
       mint(_addresses[i], _amounts[i]);
       _totalSupply.add(_amounts[i]);
+      whitelistAddress(_addresses[i]);
     }
   }
 
@@ -70,6 +71,11 @@ contract Politicoin is ERC20Mintable, CheckERC165 {
   modifier whitelistedAddy(address _checkAddress) {
     require(whitelist[_checkAddress] == true);
     _;
+  }
+
+  function removeWhitelistAddress (address _whiteListAddy) external onlyMinter validAddress(_whiteListAddy) whitelistedAddy(_whiteListAddy) returns (bool) {
+    whitelist[_whiteListAddy] = false;
+    return true;
   }
 
   function isWhiteListed(address _checkAddress) external view validAddress(_checkAddress) returns (bool) {
