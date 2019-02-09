@@ -1,4 +1,4 @@
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "./libraries/erc20/ERC20Mintable.sol";
 import "./libraries/erc165/CheckERC165.sol";

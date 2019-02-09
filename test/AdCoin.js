@@ -76,10 +76,10 @@ contract('AdCoin', async (accounts) => {
     const politicoin = await AdCoin.new();
     await politicoin.createBallot("George Washington", { from: manager, gas: "100000000"});
     const ballot = await politicoin.showBallot.call(1);
-    assert.equal(ballot[0], "George Washington");
+    assert.equal(web3.toUtf8(ballot[0]), "George Washington");
     await politicoin.createBallot("Thomas Jefferson", { from: manager, gas: "100000000"});
     const ballot2 = await politicoin.showBallot.call(2);
-    assert.equal(ballot2[0], "Thomas Jefferson");
+    assert.equal(web3.toUtf8(ballot2[0]), "Thomas Jefferson");
     const ballotId = await politicoin.getHighestBallotId.call();
     assert.equal(ballotId, 2);
   });
